@@ -23,6 +23,9 @@ public class Product implements Serializable {
     @Column
     private String name;
 
+    @Column
+    private BigDecimal stock;
+
     @Column(columnName = "unit_price")
     private BigDecimal unitPrice;
 

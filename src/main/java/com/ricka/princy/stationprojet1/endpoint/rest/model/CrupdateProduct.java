@@ -17,6 +17,7 @@ public class CrupdateProduct implements Serializable {
     private String id;
     private String name;
     private BigDecimal unitPrice;
+    private BigDecimal stock;
     private Instant createdAt;
     private Instant updatedAt;
     private String stationId;

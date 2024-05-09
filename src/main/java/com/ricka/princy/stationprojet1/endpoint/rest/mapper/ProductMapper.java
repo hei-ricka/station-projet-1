@@ -16,6 +16,7 @@ public class ProductMapper {
                 .builder()
                 .id(crupdateProduct.getId())
                 .name(crupdateProduct.getName())
+                .stock(crupdateProduct.getStock())
                 .createdAt(crupdateProduct.getCreatedAt())
                 .unitPrice(crupdateProduct.getUnitPrice())
                 .updatedAt(crupdateProduct.getUpdatedAt())
