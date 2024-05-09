@@ -31,7 +31,7 @@ public class ProductOperationController {
     }
 
     @PutMapping("/operations")
-    public List<ProductOperation> saveOrUpdateAll(@RequestBody List<CreateProductOperation> productOperations){
-        return productOperationService.saveOrUpdateAll(productOperations.stream().map(productOperationMapper::toRest).toList());
+    public ProductOperation saveOrUpdateAll(@RequestBody CreateProductOperation productOperation){
+        return productOperationService.doOperations(productOperationMapper.toRest(productOperation));
     }
 }
