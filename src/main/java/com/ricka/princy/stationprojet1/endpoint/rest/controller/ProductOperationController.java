@@ -1,7 +1,8 @@
 package com.ricka.princy.stationprojet1.endpoint.rest.controller;
 
 import com.ricka.princy.stationprojet1.endpoint.rest.mapper.ProductOperationMapper;
-import com.ricka.princy.stationprojet1.endpoint.rest.model.CreateProductOperation;
+import com.ricka.princy.stationprojet1.endpoint.rest.model.CreateProcurementOperation;
+import com.ricka.princy.stationprojet1.endpoint.rest.model.CreateSaleOperation;
 import com.ricka.princy.stationprojet1.model.ProductOperation;
 import com.ricka.princy.stationprojet1.service.ProductOperationService;
 import lombok.RequiredArgsConstructor;
@@ -30,8 +31,13 @@ public class ProductOperationController {
         return productOperationService.getByProductId(productId);
     }
 
-    @PutMapping("/operations")
-    public ProductOperation saveOrUpdateAll(@RequestBody CreateProductOperation productOperation){
-        return productOperationService.doOperations(productOperationMapper.toRest(productOperation));
+    @PutMapping("/operations/procurements")
+    public ProductOperation doProcurement(@RequestBody CreateProcurementOperation productOperation){
+        return productOperationService.doOperations(productOperationMapper.procurementToRest(productOperation));
+    }
+
+    @PutMapping("/operations/sales")
+    public ProductOperation doSale(@RequestBody CreateSaleOperation productOperation){
+        return productOperationService.doOperations(productOperationMapper.saleToRest(productOperation));
     }
 }

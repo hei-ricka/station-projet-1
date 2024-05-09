@@ -72,6 +72,17 @@ public class ProductOperationService {
     }
 
     public ProductOperation doOperations(ProductOperation productOperation){
+        ProductOperation oldOperation = null;
+        try {
+            oldOperation = productOperationRepository.findById(productOperation.getId());
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        if( oldOperation != null){
+            return oldOperation;
+        }
+
         Product product = productOperation.getProduct();
         product.setUpdatedAt(Instant.now());
 

@@ -1,6 +1,5 @@
 package com.ricka.princy.stationprojet1.endpoint.rest.model;
 
-import com.ricka.princy.stationprojet1.model.ProductOperationType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,10 +13,9 @@ import java.time.Instant;
 @NoArgsConstructor
 @Data
 @Builder
-public class CreateProductOperation implements Serializable {
+public class CreateProcurementOperation implements Serializable {
     private String id;
     private Instant operationDatetime;
-    private ProductOperationType type;
     private BigDecimal quantity;
     private String productId;
 }

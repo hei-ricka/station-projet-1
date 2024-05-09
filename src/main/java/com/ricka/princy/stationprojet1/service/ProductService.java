@@ -6,6 +6,8 @@ import com.ricka.princy.stationprojet1.repository.ProductRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -58,5 +60,9 @@ public class ProductService {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public BigDecimal calcQuantityFromPrice(Product product, BigDecimal price){
+        return price.divide(product.getUnitPrice(), RoundingMode.HALF_DOWN);
     }
 }
