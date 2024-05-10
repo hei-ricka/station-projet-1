@@ -29,7 +29,7 @@ public class ProductOperationRepository extends FJPARepository<ProductOperation>
             condition.append(" and @type = ?");
             values.add(type);
         }
-        condition.append(" oder by @operationDatetime DESC");
+        condition.append(" order by @operationDatetime DESC");
 
         return this.findByCondition(condition.toString(), values);
     }
