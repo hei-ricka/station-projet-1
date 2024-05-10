@@ -2,9 +2,7 @@ package com.ricka.princy.stationprojet1.service;
 
 import com.ricka.princy.stationprojet1.exception.BadRequestException;
 import com.ricka.princy.stationprojet1.exception.NotFoundException;
-import com.ricka.princy.stationprojet1.model.Product;
-import com.ricka.princy.stationprojet1.model.ProductOperation;
-import com.ricka.princy.stationprojet1.model.ProductOperationType;
+import com.ricka.princy.stationprojet1.model.*;
 import com.ricka.princy.stationprojet1.repository.ProductOperationRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -12,8 +10,11 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @AllArgsConstructor
@@ -61,6 +62,69 @@ public class ProductOperationService {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public List<ProductOperation> getByStationId(String stationId, Instant from, Instant to, ProductOperationType type){
+        try {
+            return productOperationRepository.findByStationId(stationId, from, to, type);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public List<OperationStatementValues> getOperationStatementByIdPerDay(String stationId, Instant from, Instant to){
+        try {
+            List<ProductOperation> productOperations = productOperationRepository.findByStationId(stationId, from, to, null);
+            Map<Instant, Map<String, OperationStatement>> operationStatements = new HashMap<>();
+            Instant currentDay = from.truncatedTo(ChronoUnit.DAYS);
+
+            while (currentDay.isBefore(to.truncatedTo(ChronoUnit.DAYS))) {
+                Map<String, OperationStatement> forCurrentDays = new HashMap<>();
+                for (ProductOperation operation : productOperations) {
+                    OperationStatement currentOperationStatement = forCurrentDays.getOrDefault(operation.getProduct().getName(), null);
+                    Instant datetime = operation.getOperationDatetime();
+                    boolean isSale = operation.getType().equals(ProductOperationType.SALE);
+
+                    if (!(!datetime.isBefore(currentDay) && datetime.isBefore(currentDay.plus(1, ChronoUnit.DAYS)))) {
+                        continue;
+                    }
+
+                    currentOperationStatement = getCurrentOperationStatement(operation, currentOperationStatement);
+
+                    BigDecimal procurementToAdd = isSale ? BigDecimal.ZERO : operation.getQuantity();
+                    BigDecimal saleToAdd = isSale ? operation.getQuantity() : BigDecimal.ZERO;
+                    currentOperationStatement.setRestQuantity(currentOperationStatement.getRestQuantity().add(operation.getProduct().getStock()));
+                    currentOperationStatement.setProcurementQuantity(
+                        currentOperationStatement.getProcurementQuantity().add(procurementToAdd)
+                    );
+                    currentOperationStatement.setSaleQuantity(
+                        currentOperationStatement.getSaleQuantity().add(saleToAdd)
+                    );
+
+                    forCurrentDays.put(operation.getProduct().getName(), currentOperationStatement);
+                }
+                operationStatements.put(currentDay, forCurrentDays);
+                currentDay = currentDay.plus(1, ChronoUnit.DAYS);
+            }
+
+            return operationStatements.entrySet().stream().map((stat)->{
+                return new OperationStatementValues(stat.getKey(), stat.getValue().values().stream().toList());
+            }).toList();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static OperationStatement getCurrentOperationStatement(ProductOperation operation, OperationStatement currentOperationStatement) {
+        boolean isSale = operation.getType().equals(ProductOperationType.SALE);
+        return currentOperationStatement != null
+            ? currentOperationStatement
+            : new OperationStatement(
+                operation.getProduct().getName(),
+                isSale ? operation.getQuantity() : BigDecimal.ZERO,
+                !isSale ? operation.getQuantity() : BigDecimal.ZERO,
+                operation.getProduct().getStock()
+            );
     }
 
     public List<ProductOperation> getByProductId(String productId){
