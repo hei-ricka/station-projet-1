@@ -8,10 +8,11 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
 
-@Repository
+@Repository final
 public class ProductRepository extends FJPARepository<Product> {
-    public ProductRepository(Connection connection) {
+    public ProductRepository(Connection connection, ProductRepositoryMapper productRepositoryMapper) {
         super(connection);
+        this.setResultSetMapper(productRepositoryMapper);
     }
 
     public List<Product> findByStationId(String stationId) throws SQLException {

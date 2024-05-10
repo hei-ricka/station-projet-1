@@ -16,6 +16,7 @@ public class StatementWrapper {
 
     public PreparedStatement prepared(String query, List<Object> values) throws SQLException {
         PreparedStatement statement = connection.prepareStatement(query, PreparedStatement.RETURN_GENERATED_KEYS);
+        System.out.println(query);
         if(values == null)
             return statement;
 

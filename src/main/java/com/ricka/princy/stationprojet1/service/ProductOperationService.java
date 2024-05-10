@@ -11,16 +11,17 @@ import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @AllArgsConstructor
 public class ProductOperationService {
     private final ProductOperationRepository productOperationRepository;
     private final ProductService productService;
+    private final StockHistoryService stockHistoryService;
     private static final BigDecimal MAX_SALE_QUANTITY = BigDecimal.valueOf(200);
 
     public List<ProductOperation> getAllProductOperations(){
@@ -42,14 +43,6 @@ public class ProductOperationService {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    public List<ProductOperation> saveOrUpdateAll(List<ProductOperation> productOperations){
-        List<ProductOperation> result = new ArrayList<>();
-        for (ProductOperation productOperation : productOperations) {
-            result.add(this.saveOrUpdate(productOperation));
-        }
-        return result;
     }
 
     public ProductOperation getById(String productOperationId){
@@ -84,8 +77,9 @@ public class ProductOperationService {
                     OperationStatement currentOperationStatement = forCurrentDays.getOrDefault(operation.getProduct().getName(), null);
                     Instant datetime = operation.getOperationDatetime();
                     boolean isSale = operation.getType().equals(ProductOperationType.SALE);
+                    Instant endDate = currentDay;
 
-                    if (!(!datetime.isBefore(currentDay) && datetime.isBefore(currentDay.plus(1, ChronoUnit.DAYS)))) {
+                    if (datetime.isBefore(currentDay) || !datetime.isBefore(endDate.plus(1, ChronoUnit.DAYS))){
                         continue;
                     }
 
@@ -154,14 +148,19 @@ public class ProductOperationService {
             throw new BadRequestException("Operation quantity must be greater than 0");
         }
 
+        StockHistory currentStock = stockHistoryService.getProductCurrentStock(productOperation.getProduct().getId());
         if(productOperation.getType().equals(ProductOperationType.PROCUREMENT)){
-            product.setStock(productOperation.getQuantity().add(product.getStock()));
-            productService.saveOrUpdate(product);
+            currentStock.setQuantity(currentStock.getQuantity().add(productOperation.getQuantity()));
+            currentStock.setCreatedAt(Instant.now());
+            currentStock.setId(UUID.randomUUID().toString());
+            stockHistoryService.saveOrUpdate(currentStock);
             return this.saveOrUpdate(productOperation);
         }
 
         this.verifySaleProductOperation(productOperation);
-        product.setStock(product.getStock().add(productOperation.getQuantity().negate()));
+        currentStock.setQuantity(currentStock.getQuantity().min(productOperation.getQuantity()));
+        currentStock.setId(UUID.randomUUID().toString());
+        currentStock.setCreatedAt(Instant.now());
         productService.saveOrUpdate(product);
         return this.saveOrUpdate(productOperation);
     }
@@ -171,7 +170,8 @@ public class ProductOperationService {
             throw new BadRequestException(String.format("Max sale quantity is %s", MAX_SALE_QUANTITY));
         }
 
-        if(productOperation.getProduct().getStock().compareTo(productOperation.getQuantity()) < 0){
+        StockHistory stockHistory = stockHistoryService.getProductCurrentStock(productOperation.getProduct().getId());
+        if(stockHistory.getQuantity().compareTo(productOperation.getQuantity()) < 0){
             throw new BadRequestException(String.format("Insufficient stock. Remaining stock: %s" ,productOperation.getProduct().getStock()));
         }
     }
