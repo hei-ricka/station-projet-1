@@ -1,8 +1,8 @@
 package com.ricka.princy.stationprojet1.repository;
 
 import com.ricka.princy.stationprojet1.fjpa.FJPARepository;
-import com.ricka.princy.stationprojet1.model.ProductOperation;
-import com.ricka.princy.stationprojet1.model.ProductOperationType;
+import com.ricka.princy.stationprojet1.entity.ProductOperation;
+import com.ricka.princy.stationprojet1.entity.ProductOperationType;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Connection;
@@ -19,6 +19,11 @@ public class ProductOperationRepository extends FJPARepository<ProductOperation>
 
     public List<ProductOperation> findByProductId(String productId) throws SQLException {
         return this.findByField("@product", productId);
+    }
+
+    public ProductOperation getLatestOperationInDateByProductId(String productId, Instant datetime) throws SQLException {
+        List<ProductOperation> operations = this.findByCondition("@operationDatetime <= ? and @product = ? order by @operationDatetime desc limit 1", List.of(productId, datetime));
+        return operations.isEmpty() ? null : operations.getFirst();
     }
 
     public List<ProductOperation> findByStationId(String stationId, Instant from, Instant to, ProductOperationType type) throws SQLException {

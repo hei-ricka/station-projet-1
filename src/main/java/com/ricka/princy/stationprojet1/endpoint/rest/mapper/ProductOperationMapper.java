@@ -3,9 +3,9 @@ package com.ricka.princy.stationprojet1.endpoint.rest.mapper;
 import com.ricka.princy.stationprojet1.endpoint.rest.model.CreateProcurementOperation;
 import com.ricka.princy.stationprojet1.endpoint.rest.model.CreateSaleOperation;
 import com.ricka.princy.stationprojet1.exception.BadRequestException;
-import com.ricka.princy.stationprojet1.model.Product;
-import com.ricka.princy.stationprojet1.model.ProductOperation;
-import com.ricka.princy.stationprojet1.model.ProductOperationType;
+import com.ricka.princy.stationprojet1.entity.Product;
+import com.ricka.princy.stationprojet1.entity.ProductOperation;
+import com.ricka.princy.stationprojet1.entity.ProductOperationType;
 import com.ricka.princy.stationprojet1.service.ProductService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -37,7 +37,7 @@ public class ProductOperationMapper {
 
         BigDecimal quantity = productOperation.getQuantity() != null ?
                 productOperation.getQuantity()
-                : productService.calcQuantityFromPrice(product, productOperation.getAmount());
+                : ProductService.calcQuantityFromPrice(product, productOperation.getAmount());
         return ProductOperation
                 .builder()
                 .id(productOperation.getId())

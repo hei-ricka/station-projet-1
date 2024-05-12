@@ -2,7 +2,7 @@ package com.ricka.princy.stationprojet1.endpoint.rest.controller;
 
 import com.ricka.princy.stationprojet1.endpoint.rest.mapper.ProductMapper;
 import com.ricka.princy.stationprojet1.endpoint.rest.model.CrupdateProduct;
-import com.ricka.princy.stationprojet1.model.Product;
+import com.ricka.princy.stationprojet1.entity.Product;
 import com.ricka.princy.stationprojet1.service.ProductService;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;

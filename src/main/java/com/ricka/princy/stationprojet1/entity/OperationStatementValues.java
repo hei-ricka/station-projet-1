@@ -1,4 +1,4 @@
-package com.ricka.princy.stationprojet1.model;
+package com.ricka.princy.stationprojet1.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

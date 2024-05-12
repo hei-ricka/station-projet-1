@@ -1,7 +1,7 @@
 package com.ricka.princy.stationprojet1.service;
 
 import com.ricka.princy.stationprojet1.exception.NotFoundException;
-import com.ricka.princy.stationprojet1.model.Product;
+import com.ricka.princy.stationprojet1.entity.Product;
 import com.ricka.princy.stationprojet1.repository.ProductRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -62,7 +62,7 @@ public class ProductService {
         }
     }
 
-    public BigDecimal calcQuantityFromPrice(Product product, BigDecimal price){
+    public static BigDecimal calcQuantityFromPrice(Product product, BigDecimal price){
         return price.divide(product.getUnitPrice(), RoundingMode.HALF_DOWN);
     }
 }

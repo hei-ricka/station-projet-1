@@ -1,6 +1,6 @@
 package com.ricka.princy.stationprojet1.endpoint.rest.controller;
 
-import com.ricka.princy.stationprojet1.model.Dummy;
+import com.ricka.princy.stationprojet1.entity.Dummy;
 import com.ricka.princy.stationprojet1.repository.DummyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;

@@ -1,4 +1,4 @@
-package com.ricka.princy.stationprojet1.model;
+package com.ricka.princy.stationprojet1.entity;
 
 import com.ricka.princy.stationprojet1.fjpa.annotation.*;
 import lombok.AllArgsConstructor;

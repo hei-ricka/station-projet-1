@@ -1,7 +1,7 @@
 package com.ricka.princy.stationprojet1.service;
 
 import com.ricka.princy.stationprojet1.exception.NotFoundException;
-import com.ricka.princy.stationprojet1.model.Station;
+import com.ricka.princy.stationprojet1.entity.Station;
 import com.ricka.princy.stationprojet1.repository.StationRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;

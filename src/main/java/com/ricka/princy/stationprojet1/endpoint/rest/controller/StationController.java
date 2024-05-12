@@ -1,6 +1,6 @@
 package com.ricka.princy.stationprojet1.endpoint.rest.controller;
 
-import com.ricka.princy.stationprojet1.model.Station;
+import com.ricka.princy.stationprojet1.entity.Station;
 import com.ricka.princy.stationprojet1.service.StationService;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;

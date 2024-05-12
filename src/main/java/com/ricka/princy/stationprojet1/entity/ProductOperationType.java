@@ -1,4 +1,4 @@
-package com.ricka.princy.stationprojet1.model;
+package com.ricka.princy.stationprojet1.entity;
 
 public enum ProductOperationType {
     SALE,

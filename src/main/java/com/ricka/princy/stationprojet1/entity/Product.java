@@ -1,4 +1,4 @@
-package com.ricka.princy.stationprojet1.model;
+package com.ricka.princy.stationprojet1.entity;
 
 import com.ricka.princy.stationprojet1.fjpa.annotation.*;
 import lombok.AllArgsConstructor;
@@ -10,20 +10,18 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-@AllArgsConstructor
-@NoArgsConstructor
 @Data
 @Entity
 @Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class Product implements Serializable {
     @Id
     @Column
     private String id;
 
     @Column
-    private String name;
-
-    private BigDecimal stock;
+    private BigDecimal evaporation;
 
     @Column(columnName = "unit_price")
     private BigDecimal unitPrice;
@@ -34,11 +32,16 @@ public class Product implements Serializable {
     @Column(columnName = "updated_at")
     private Instant updatedAt;
 
-    @Column
-    private BigDecimal evaporation;
-
     @Relation
     @ValueGetter
     @Column(columnName = "station_id")
     private Station station;
+
+    @Relation
+    @ValueGetter
+    @Column(columnName = "product_template_id")
+    private ProductTemplate productTemplate;
+
+    @Relation
+    private BigDecimal stock;
 }

@@ -15,11 +15,10 @@ import java.time.Instant;
 @Data
 public class CrupdateProduct implements Serializable {
     private String id;
-    private String name;
     private BigDecimal unitPrice;
-    private BigDecimal stock;
     private BigDecimal evaporation;
     private Instant createdAt;
     private Instant updatedAt;
     private String stationId;
+    private String productTemplateId;
 }

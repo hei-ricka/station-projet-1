@@ -2,8 +2,9 @@ package com.ricka.princy.stationprojet1.service;
 
 import com.ricka.princy.stationprojet1.exception.BadRequestException;
 import com.ricka.princy.stationprojet1.exception.NotFoundException;
-import com.ricka.princy.stationprojet1.model.*;
+import com.ricka.princy.stationprojet1.entity.*;
 import com.ricka.princy.stationprojet1.repository.ProductOperationRepository;
+import com.ricka.princy.stationprojet1.repository.ProductRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -11,22 +12,22 @@ import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
 public class ProductOperationService {
     private final ProductOperationRepository productOperationRepository;
-    private final ProductService productService;
-    private final StockHistoryService stockHistoryService;
+    private final ProductRepository productRepository;
     private static final BigDecimal MAX_SALE_QUANTITY = BigDecimal.valueOf(200);
 
     public List<ProductOperation> getAllProductOperations(){
         try {
-            return productOperationRepository.findAll();
+            return productOperationRepository.findAll().stream().map(this::mapProductStockToOperationDatetimeStock).collect(Collectors.toList());
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -34,10 +35,6 @@ public class ProductOperationService {
 
     public ProductOperation saveOrUpdate(ProductOperation productOperation){
         try {
-            ProductOperation oldOperation = productOperationRepository.findById(productOperation.getId());
-            if( oldOperation != null){
-                return oldOperation;
-            }
             productOperationRepository.saveOrUpdate(productOperation);
             return productOperationRepository.findById(productOperation.getId());
         } catch (SQLException e) {
@@ -51,7 +48,7 @@ public class ProductOperationService {
             if(productOperation == null){
                 throw new NotFoundException(String.format("ProductOperation with {id: %s} is not found", productOperationId));
             }
-            return productOperation;
+            return this.mapProductStockToOperationDatetimeStock(productOperation);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -59,120 +56,110 @@ public class ProductOperationService {
 
     public List<ProductOperation> getByStationId(String stationId, Instant from, Instant to, ProductOperationType type){
         try {
-            return productOperationRepository.findByStationId(stationId, from, to, type);
+            return productOperationRepository.findByStationId(stationId, from, to, type)
+                    .stream()
+                    .map(this::mapProductStockToOperationDatetimeStock)
+                    .collect(Collectors.toList());
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public List<ProductOperation> getByProductId(String productId){
+        try {
+            return productOperationRepository.findByProductId(productId)
+                    .stream()
+                    .map(this::mapProductStockToOperationDatetimeStock)
+                    .collect(Collectors.toList());
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public ProductOperation mapProductStockToOperationDatetimeStock(ProductOperation operation){
+        Product product = operation.getProduct();
+        try {
+            product.setStock(productRepository.getStockInDateByProductId(product, operation.getOperationDatetime()));
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        operation.setProduct(product);
+        return operation;
+    }
+
+    public void verifySaleProductOperationQuantity(BigDecimal quantity, BigDecimal stock){
+        if(quantity.compareTo(MAX_SALE_QUANTITY) >= 0){
+            throw new BadRequestException(String.format("Max sale quantity is %s", MAX_SALE_QUANTITY));
+        }
+        if(stock.compareTo(quantity) < 0){
+            throw new BadRequestException(String.format("Insufficient stock. Remaining stock: %s" , stock));
+        }
+    }
+
+    public ProductOperation doOperations(ProductOperation mappedOperation){
+        try {
+            ProductOperation oldOperation;
+            oldOperation = productOperationRepository.findById(mappedOperation.getId());
+            if( oldOperation != null)
+                return oldOperation;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        if(mappedOperation.getQuantity().compareTo(BigDecimal.ZERO) <= 0){
+            throw new BadRequestException("Operation quantity must be greater than 0");
+        }else if(mappedOperation.getType().equals(ProductOperationType.PROCUREMENT)){
+            return this.saveOrUpdate(mappedOperation);
+        }
+
+        this.verifySaleProductOperationQuantity(mappedOperation.getQuantity(), mappedOperation.getProduct().getStock());
+        return this.saveOrUpdate(mappedOperation);
+    }
+
+    private static OperationStatement getCurrentOperationStatement(ProductOperation operation, OperationStatement currentOperationStatement) {
+        boolean isSale = operation.getType().equals(ProductOperationType.SALE);
+        return currentOperationStatement != null ? currentOperationStatement : new OperationStatement(
+            operation.getProduct().getProductTemplate().getName(),
+            isSale ? operation.getQuantity() : BigDecimal.ZERO,
+            !isSale ? operation.getQuantity() : BigDecimal.ZERO,
+            operation.getProduct().getStock()
+        );
     }
 
     public List<OperationStatementValues> getOperationStatementByIdPerDay(String stationId, Instant from, Instant to){
         try {
             List<ProductOperation> productOperations = productOperationRepository.findByStationId(stationId, from, to, null);
-            Map<Instant, Map<String, OperationStatement>> operationStatements = new HashMap<>();
+            List<OperationStatementValues> operationStatementValues = new ArrayList<>();
             Instant currentDay = from.truncatedTo(ChronoUnit.DAYS);
 
             while (currentDay.isBefore(to.truncatedTo(ChronoUnit.DAYS))) {
-                Map<String, OperationStatement> forCurrentDays = new HashMap<>();
-                for (ProductOperation operation : productOperations) {
-                    OperationStatement currentOperationStatement = forCurrentDays.getOrDefault(operation.getProduct().getName(), null);
-                    Instant datetime = operation.getOperationDatetime();
+                final Instant currentDate = currentDay;
+                List<ProductOperation> currentOperations = productOperations.stream()
+                    .filter(operation -> (
+                        !operation.getOperationDatetime().isBefore(currentDate) &&
+                        operation.getOperationDatetime().isBefore(currentDate.plus(1, ChronoUnit.DAYS))
+                    )).toList();
+
+                Map<String, OperationStatement> resultForCurrentDays = new HashMap<>();
+                currentOperations.forEach(operation -> {
+                    OperationStatement currentOperationStatement = resultForCurrentDays.getOrDefault(operation.getProduct().getProductTemplate().getName(), null);
                     boolean isSale = operation.getType().equals(ProductOperationType.SALE);
-                    Instant endDate = currentDay;
-
-                    if (datetime.isBefore(currentDay) || !datetime.isBefore(endDate.plus(1, ChronoUnit.DAYS))){
-                        continue;
-                    }
-
-                    currentOperationStatement = getCurrentOperationStatement(operation, currentOperationStatement);
-
                     BigDecimal procurementToAdd = isSale ? BigDecimal.ZERO : operation.getQuantity();
                     BigDecimal saleToAdd = isSale ? operation.getQuantity() : BigDecimal.ZERO;
-                    currentOperationStatement.setRestQuantity(currentOperationStatement.getRestQuantity().add(operation.getProduct().getStock()));
-                    currentOperationStatement.setProcurementQuantity(
-                        currentOperationStatement.getProcurementQuantity().add(procurementToAdd)
-                    );
-                    currentOperationStatement.setSaleQuantity(
-                        currentOperationStatement.getSaleQuantity().add(saleToAdd)
-                    );
 
-                    forCurrentDays.put(operation.getProduct().getName(), currentOperationStatement);
-                }
-                operationStatements.put(currentDay, forCurrentDays);
+                    currentOperationStatement = getCurrentOperationStatement(operation, currentOperationStatement);
+                    currentOperationStatement.setRestQuantity(currentOperationStatement.getRestQuantity().add(operation.getProduct().getStock()));
+                    currentOperationStatement.setProcurementQuantity(currentOperationStatement.getProcurementQuantity().add(procurementToAdd));
+                    currentOperationStatement.setSaleQuantity(currentOperationStatement.getSaleQuantity().add(saleToAdd));
+                    resultForCurrentDays.put(operation.getProduct().getProductTemplate().getName(), currentOperationStatement);
+                });
+
+                operationStatementValues.add(new OperationStatementValues(currentDay, resultForCurrentDays.values().stream().toList()));
                 currentDay = currentDay.plus(1, ChronoUnit.DAYS);
             }
-
-            return operationStatements.entrySet().stream().map((stat)->{
-                return new OperationStatementValues(stat.getKey(), stat.getValue().values().stream().toList());
-            }).toList();
+            return operationStatementValues;
         } catch (SQLException e) {
             throw new RuntimeException(e);
-        }
-    }
-
-    private static OperationStatement getCurrentOperationStatement(ProductOperation operation, OperationStatement currentOperationStatement) {
-        boolean isSale = operation.getType().equals(ProductOperationType.SALE);
-        return currentOperationStatement != null
-            ? currentOperationStatement
-            : new OperationStatement(
-                operation.getProduct().getName(),
-                isSale ? operation.getQuantity() : BigDecimal.ZERO,
-                !isSale ? operation.getQuantity() : BigDecimal.ZERO,
-                operation.getProduct().getStock()
-            );
-    }
-
-    public List<ProductOperation> getByProductId(String productId){
-        try {
-            return productOperationRepository.findByProductId(productId);
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    public ProductOperation doOperations(ProductOperation productOperation){
-        ProductOperation oldOperation = null;
-        try {
-            oldOperation = productOperationRepository.findById(productOperation.getId());
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-
-        if( oldOperation != null){
-            return oldOperation;
-        }
-
-        Product product = productOperation.getProduct();
-        product.setUpdatedAt(Instant.now());
-
-        if(productOperation.getQuantity().compareTo(BigDecimal.ZERO) <= 0){
-            throw new BadRequestException("Operation quantity must be greater than 0");
-        }
-
-        StockHistory currentStock = stockHistoryService.getProductCurrentStock(productOperation.getProduct().getId());
-        if(productOperation.getType().equals(ProductOperationType.PROCUREMENT)){
-            currentStock.setQuantity(currentStock.getQuantity().add(productOperation.getQuantity()));
-            currentStock.setCreatedAt(Instant.now());
-            currentStock.setId(UUID.randomUUID().toString());
-            stockHistoryService.saveOrUpdate(currentStock);
-            return this.saveOrUpdate(productOperation);
-        }
-
-        this.verifySaleProductOperation(productOperation);
-        currentStock.setQuantity(currentStock.getQuantity().min(productOperation.getQuantity()));
-        currentStock.setId(UUID.randomUUID().toString());
-        currentStock.setCreatedAt(Instant.now());
-        productService.saveOrUpdate(product);
-        return this.saveOrUpdate(productOperation);
-    }
-
-    public void verifySaleProductOperation(ProductOperation productOperation){
-        if(productOperation.getQuantity().compareTo(MAX_SALE_QUANTITY) >= 0){
-            throw new BadRequestException(String.format("Max sale quantity is %s", MAX_SALE_QUANTITY));
-        }
-
-        StockHistory stockHistory = stockHistoryService.getProductCurrentStock(productOperation.getProduct().getId());
-        if(stockHistory.getQuantity().compareTo(productOperation.getQuantity()) < 0){
-            throw new BadRequestException(String.format("Insufficient stock. Remaining stock: %s" ,productOperation.getProduct().getStock()));
         }
     }
 }
