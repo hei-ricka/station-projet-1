@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 public class ProductOperationService {
     private final ProductOperationRepository productOperationRepository;
     private final ProductRepository productRepository;
+    private final ProductTemplateService productTemplateService;
     private static final BigDecimal MAX_SALE_QUANTITY = BigDecimal.valueOf(200);
 
     public List<ProductOperation> getAllProductOperations(){
@@ -117,12 +118,11 @@ public class ProductOperationService {
     }
 
     private static OperationStatement getCurrentOperationStatement(ProductOperation operation, OperationStatement currentOperationStatement) {
-        boolean isSale = operation.getType().equals(ProductOperationType.SALE);
         return currentOperationStatement != null ? currentOperationStatement : new OperationStatement(
             operation.getProduct().getProductTemplate().getName(),
-            isSale ? operation.getQuantity() : BigDecimal.ZERO,
-            !isSale ? operation.getQuantity() : BigDecimal.ZERO,
-            operation.getProduct().getStock()
+            BigDecimal.ZERO,
+            BigDecimal.ZERO,
+            BigDecimal.ZERO
         );
     }
 
@@ -130,8 +130,8 @@ public class ProductOperationService {
         try {
             List<ProductOperation> productOperations = productOperationRepository.findByStationId(stationId, from, to, null);
             List<OperationStatementValues> operationStatementValues = new ArrayList<>();
-            Instant currentDay = from.truncatedTo(ChronoUnit.DAYS);
 
+            Instant currentDay = from.truncatedTo(ChronoUnit.DAYS);
             while (currentDay.isBefore(to.truncatedTo(ChronoUnit.DAYS))) {
                 final Instant currentDate = currentDay;
                 List<ProductOperation> currentOperations = productOperations.stream()
@@ -148,9 +148,11 @@ public class ProductOperationService {
                     BigDecimal saleToAdd = isSale ? operation.getQuantity() : BigDecimal.ZERO;
 
                     currentOperationStatement = getCurrentOperationStatement(operation, currentOperationStatement);
-                    currentOperationStatement.setRestQuantity(currentOperationStatement.getRestQuantity().add(operation.getProduct().getStock()));
                     currentOperationStatement.setProcurementQuantity(currentOperationStatement.getProcurementQuantity().add(procurementToAdd));
                     currentOperationStatement.setSaleQuantity(currentOperationStatement.getSaleQuantity().add(saleToAdd));
+                    currentOperationStatement.setRestQuantity(
+                        currentOperationStatement.getProcurementQuantity().subtract(currentOperationStatement.getSaleQuantity())
+                    );
                     resultForCurrentDays.put(operation.getProduct().getProductTemplate().getName(), currentOperationStatement);
                 });
 

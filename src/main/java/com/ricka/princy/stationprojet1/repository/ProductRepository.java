@@ -1,6 +1,7 @@
 package com.ricka.princy.stationprojet1.repository;
 
 import com.ricka.princy.stationprojet1.entity.ProductOperation;
+import com.ricka.princy.stationprojet1.entity.ProductOperationType;
 import com.ricka.princy.stationprojet1.exception.InternalServerErrorException;
 import com.ricka.princy.stationprojet1.fjpa.FJPARepository;
 import com.ricka.princy.stationprojet1.entity.Product;
@@ -31,23 +32,36 @@ public class ProductRepository extends FJPARepository<Product> {
         ProductOperation lastProductOperation = this.productOperationRepository.getLatestOperationInDateByProductId(product.getId(), datetime);
         String query = """
             SELECT sum(@quantity) as stock_value
-            FROM @entity WHERE @product = ? AND @operationDatetime <= ?
+            FROM @entity WHERE @product = ? AND @operationDatetime <= ? AND @type = ?
         """;
+        String queryGenerate = this.productOperationRepository.getQueryGenerator().configure(query);
 
-        List<BigDecimal> stocks = this.productOperationRepository.getStatementWrapper().select(query, List.of(product.getId(), datetime), resultSet -> {
+        List<BigDecimal> salesProcurements = this.productOperationRepository.getStatementWrapper().select(queryGenerate, List.of(product.getId(), datetime, ProductOperationType.SALE), resultSet -> {
             try {
                 return resultSet.getBigDecimal("stock_value");
             } catch (SQLException e) {
                 throw new InternalServerErrorException(e);
             }
         });
-        if(stocks.isEmpty() || lastProductOperation == null)
+
+        List<BigDecimal> procurementsStocks = this.productOperationRepository.getStatementWrapper().select(queryGenerate, List.of(product.getId(), datetime, ProductOperationType.PROCUREMENT), resultSet -> {
+            try {
+                return resultSet.getBigDecimal("stock_value");
+            } catch (SQLException e) {
+                throw new InternalServerErrorException(e);
+            }
+        });
+
+        if(procurementsStocks.isEmpty() || lastProductOperation == null)
             return BigDecimal.ZERO;
+
+        BigDecimal currentStock = procurementsStocks.getFirst().subtract(
+            salesProcurements.isEmpty() ? BigDecimal.ZERO : salesProcurements.getFirst()
+        );
         long days = Duration.between(lastProductOperation.getOperationDatetime(), datetime).toDays();
         BigDecimal toRemove = product.getEvaporation().multiply(new BigDecimal(days));
-        BigDecimal currentsStock = stocks.getFirst().min(toRemove);
-
-        return currentsStock.compareTo(BigDecimal.valueOf(0)) < 0 ? BigDecimal.ZERO : currentsStock;
+        currentStock = currentStock.subtract(toRemove);
+        return currentStock.compareTo(BigDecimal.valueOf(0)) < 0 ? BigDecimal.ZERO : currentStock;
     }
 
     public Product mapStockToCurrentStock(Product product){

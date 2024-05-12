@@ -22,7 +22,7 @@ public class ProductOperationRepository extends FJPARepository<ProductOperation>
     }
 
     public ProductOperation getLatestOperationInDateByProductId(String productId, Instant datetime) throws SQLException {
-        List<ProductOperation> operations = this.findByCondition("@operationDatetime <= ? and @product = ? order by @operationDatetime desc limit 1", List.of(productId, datetime));
+        List<ProductOperation> operations = this.findByCondition("@product = ? and @operationDatetime <= ? order by @operationDatetime desc limit 1", List.of(productId, datetime));
         return operations.isEmpty() ? null : operations.getFirst();
     }
 

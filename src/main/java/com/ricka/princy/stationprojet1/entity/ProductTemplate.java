@@ -15,7 +15,7 @@ import java.time.Instant;
 @NoArgsConstructor
 @Data
 @Builder
-@Entity
+@Entity(tableName = "product_template")
 public class ProductTemplate implements Serializable {
     @Id
     @Column
